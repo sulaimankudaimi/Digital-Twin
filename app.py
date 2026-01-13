@@ -120,35 +120,42 @@ st.sidebar.download_button("📄 Download Diagnostic Report", data=csv, file_nam
 st.divider()
 st.subheader("🔮 AI Production Forecasting (Next 6 Months)")
 
-if success:
-    # 1. تجهيز البيانات للتنبؤ
-    numeric_df = df_real.apply(pd.to_numeric, errors='coerce').dropna(subset=['production'])
-    y_data = numeric_df['production'].values
-    X_data = np.arange(len(y_data)).reshape(-1, 1)
+if success and df_real is not None:
+    try:
+        # 1. تنظيف البيانات بشكل صارم للتدريب
+        # تحويل الإنتاج لأرقام وحذف أي قيم غير منطقية أو فارغة
+        forecast_df = df_real.copy()
+        forecast_df['production'] = pd.to_numeric(forecast_df['production'], errors='coerce')
+        forecast_df = forecast_df.dropna(subset=['production'])
+        forecast_df = forecast_df[np.isfinite(forecast_df['production'])] # حذف القيم اللانهائية
 
-    # 2. بناء موديل التنبؤ السريع
-    forecast_model = RandomForestRegressor(n_estimators=50) # أسرع وأدق للسلاسل الزمنية
-    forecast_model.fit(X_data, y_data)
+        if len(forecast_df) > 10:
+            y_data = forecast_df['production'].values
+            X_data = np.arange(len(y_data)).reshape(-1, 1)
 
-    # 3. التوقع للمستقبل
-    future_X = np.arange(len(y_data), len(y_data) + 180).reshape(-1, 1)
-    future_y = forecast_model.predict(future_X)
+            # 2. بناء موديل التنبؤ
+            forecast_model = RandomForestRegressor(n_estimators=50, random_state=42)
+            forecast_model.fit(X_data, y_data)
 
-    # 4. رسم المنحنى المتكامل (Plotly)
-    fig_final = go.Figure()
-    # البيانات التاريخية
-    fig_final.add_trace(go.Scatter(x=X_data.flatten()[-200:], y=y_data[-200:], name='Historical Data', line=dict(color='cyan')))
-    # رسم المنحنى المتكامل
-    fig_final.update_layout(title="Integrated Production Decline Curve", xaxis_title="Time Units", yaxis_title="Production Volume", template="plotly_dark")
-    st.plotly_chart(fig_final, use_container_width=True)
-    
-    st.success(f"✅ AI Analysis Complete: Predicted production at the end of forecast: {future_y[-1]:.2f} units.")
-    st.info("💡 الملاحظة الفنية: يتوقع الموديل انخفاضاً طبيعياً في الإنتاج. ينصح بجدولة صيانة للمضخة بعد 120 يوماً.")
+            # 3. التوقع للمستقبل
+            future_X = np.arange(len(y_data), len(y_data) + 180).reshape(-1, 1)
+            future_y = forecast_model.predict(future_X)
 
-else:
-    # في حالة عدم تحميل البيانات الحقيقية
-    st.warning("⚠️ Simulation mode: AI forecasting is based on synthetic engineering models.")
-    # (اختياري) يمكنك وضع رسم بياني افتراضي هنا
+            # 4. رسم المنحنى المتكامل
+            fig_final = go.Figure()
+            # عرض آخر 300 نقطة فقط ليكون الرسم واضحاً
+            fig_final.add_trace(go.Scatter(x=X_data.flatten()[-300:], y=y_data[-300:], name='Historical Data', line=dict(color='cyan')))
+            fig_final.add_trace(go.Scatter(x=future_X.flatten(), y=future_y, name='AI Future Forecast', line=dict(color='orange', dash='dot')))
+
+            fig_final.update_layout(title="Production Decline & Recovery Forecast", xaxis_title="Days", yaxis_title="Production (bbl/d)", template="plotly_dark")
+            st.plotly_chart(fig_final, use_container_width=True)
+            
+            st.success(f"✅ AI Analysis Complete: Predicted production at the end of forecast: {future_y[-1]:.2f} bbl/d")
+        else:
+            st.warning("📊 Not enough historical data points for AI Forecasting.")
+    except Exception as e:
+        st.error(f"📈 Forecasting Engine Error: {e}")
+        st.info("💡 Try adjusting the data or check for missing values in your CSV.")
 
 # --- 11. تذييل الصفحة (Footer) ---
 st.divider()
