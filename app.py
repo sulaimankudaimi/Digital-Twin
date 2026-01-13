@@ -12,13 +12,27 @@ st.set_page_config(page_title="SPC | Production Digital Twin", layout="wide", pa
 @st.cache_data
 def load_production_data():
     try:
-        # محاولة قراءة الملف الذي رفعته على GitHub
+        # 1. محاولة قراءة الملف مع تجاوز أخطاء الترميز
         df = pd.read_csv('production_data.csv', encoding='latin1')
-        # تنظيف بسيط للبيانات (تغيير أسماء الأعمدة إذا لزم الأمر لتناسب الكود)
-        df.columns = [c.replace(' ', '_') for c in df.columns]
-        return df, True
+        
+        # 2. تنظيف أسماء الأعمدة (إزالة المسافات وتحويلها لنص صغير)
+        df.columns = [str(c).strip().lower().replace(' ', '_') for c in df.columns]
+        
+        # 3. محاولة العثور على عمود الإنتاج تلقائياً
+        # سنبحث عن كلمات دلالية مثل (oil, volume, value, production)
+        potential_target_cols = [c for c in df.columns if any(word in c for word in ['oil', 'vol', 'prod', 'value'])]
+        
+        if potential_target_cols:
+            # إعادة تسمية العمود المكتشف إلى 'production' لسهولة استخدامه في الكود
+            df = df.rename(columns={potential_target_cols[0]: 'production'})
+            return df, True
+        else:
+            # إذا لم يجد عموداً مناسباً، سنعتبر آخر عمود هو الإنتاج
+            df = df.rename(columns={df.columns[-1]: 'production'})
+            return df, True
+            
     except Exception as e:
-        # في حال عدم وجود الملف، نستخدم بيانات افتراضية هندسية لضمان عمل الواجهة
+        st.sidebar.error(f"Error details: {e}")
         return None, False
 
 # --- 3. بناء وتدريب محرك التوأم الرقمي (AI Engine) ---
