@@ -9,38 +9,51 @@ from sklearn.ensemble import RandomForestRegressor
 st.set_page_config(page_title="SPC | Production Digital Twin", layout="wide", page_icon="🛢️")
 
 # --- 2. محرك قراءة وتنظيف البيانات ---
+# --- 2. محرك قراءة وتنظيف البيانات المطور ---
 @st.cache_data
 def load_production_data():
     try:
         df = pd.read_csv('production_data.csv', encoding='latin1')
-        # تنظيف الأسماء وتوحيدها
         df.columns = [str(c).strip().lower().replace(' ', '_') for c in df.columns]
         
         # البحث عن عمود الإنتاج
         potential_cols = [c for c in df.columns if any(w in c for w in ['oil', 'vol', 'prod', 'value'])]
-        if potential_cols:
-            df = df.rename(columns={potential_cols[0]: 'production'})
-        else:
-            df['production'] = df.iloc[:, -1] # افتراضي آخر عمود
+        target_col = potential_cols[0] if potential_cols else df.columns[-1]
         
+        # التعديل الجوهري: تحويل البيانات لأرقام وحذف النصوص (Errors='coerce' تحول النص لـ NaN)
+        df[target_col] = pd.to_numeric(df[target_col], errors='coerce')
+        # حذف الأسطر الفارغة التي نتجت عن نصوص خاطئة
+        df = df.dropna(subset=[target_col])
+        
+        df = df.rename(columns={target_col: 'production'})
         return df, True
-    except:
+    except Exception as e:
         return None, False
 
-# --- 3. المحرك التحليلي (AI Engine) ---
+# --- 3. المحرك التحليلي (AI Engine) مع معالجة الأخطاء ---
 @st.cache_resource
 def train_model(df, is_real):
-    if is_real:
-        # تدريب على أول 500 نقطة بيانات
-        X = np.arange(len(df.head(500))).reshape(-1, 1)
-        y = df['production'].head(500)
-    else:
+    try:
+        if is_real and df is not None:
+            # التأكد من أخذ عينة نظيفة وأرقام فقط
+            clean_df = df.head(500).copy()
+            X = np.arange(len(clean_df)).reshape(-1, 1)
+            y = clean_df['production'].astype(float) # التأكد من نوع البيانات Float
+        else:
+            X = np.linspace(1000, 4000, 500).reshape(-1, 1)
+            y = (5000 - (X.flatten() * 0.8)) + np.random.normal(0, 100, 500)
+        
+        model = RandomForestRegressor(n_estimators=100, random_state=42)
+        model.fit(X, y)
+        return model
+    except Exception as e:
+        # إذا فشل التدريب على البيانات الحقيقية، نعود للبيانات الافتراضية لضمان عمل الواجهة
+        st.sidebar.error(f"AI Training Error: {e}")
         X = np.linspace(1000, 4000, 500).reshape(-1, 1)
         y = (5000 - (X.flatten() * 0.8)) + np.random.normal(0, 100, 500)
-    
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X, y)
-    return model
+        model = RandomForestRegressor(n_estimators=10, random_state=42)
+        model.fit(X, y)
+        return model
 
 df_real, success = load_production_data()
 model = train_model(df_real, success)
