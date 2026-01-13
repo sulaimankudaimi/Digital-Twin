@@ -5,169 +5,102 @@ import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.ensemble import RandomForestRegressor
 
-# --- 1. إعدادات الصفحة الاحترافية ---
+# --- 1. إعدادات الصفحة ---
 st.set_page_config(page_title="SPC | Production Digital Twin", layout="wide", page_icon="🛢️")
 
-# --- 2. وظيفة قراءة البيانات (Data Ingestion) ---
+# --- 2. محرك قراءة وتنظيف البيانات ---
 @st.cache_data
 def load_production_data():
     try:
-        # 1. محاولة قراءة الملف مع تجاوز أخطاء الترميز
         df = pd.read_csv('production_data.csv', encoding='latin1')
-        
-        # 2. تنظيف أسماء الأعمدة (إزالة المسافات وتحويلها لنص صغير)
+        # تنظيف الأسماء وتوحيدها
         df.columns = [str(c).strip().lower().replace(' ', '_') for c in df.columns]
         
-        # 3. محاولة العثور على عمود الإنتاج تلقائياً
-        # سنبحث عن كلمات دلالية مثل (oil, volume, value, production)
-        potential_target_cols = [c for c in df.columns if any(word in c for word in ['oil', 'vol', 'prod', 'value'])]
-        
-        if potential_target_cols:
-            # إعادة تسمية العمود المكتشف إلى 'production' لسهولة استخدامه في الكود
-            df = df.rename(columns={potential_target_cols[0]: 'production'})
-            return df, True
+        # البحث عن عمود الإنتاج
+        potential_cols = [c for c in df.columns if any(w in c for w in ['oil', 'vol', 'prod', 'value'])]
+        if potential_cols:
+            df = df.rename(columns={potential_cols[0]: 'production'})
         else:
-            # إذا لم يجد عموداً مناسباً، سنعتبر آخر عمود هو الإنتاج
-            df = df.rename(columns={df.columns[-1]: 'production'})
-            return df, True
-            
-    except Exception as e:
-        st.sidebar.error(f"Error details: {e}")
+            df['production'] = df.iloc[:, -1] # افتراضي آخر عمود
+        
+        return df, True
+    except:
         return None, False
 
-# --- 3. بناء وتدريب محرك التوأم الرقمي (AI Engine) ---
+# --- 3. المحرك التحليلي (AI Engine) ---
 @st.cache_resource
-def train_twin_engine(df, is_real):
+def train_model(df, is_real):
     if is_real:
-        # استخدام أعمدة حقيقية من بيانات Volve
-        # سنحاول العثور على أعمدة الضغط أو العمق، وإذا لم توجد سنعتمد على الترتيب الزمني
-        X = np.arange(len(df)).reshape(-1, 1) # كبديل للزمن
-        y = df.iloc[:, -1] # نفترض أن العمود الأخير هو الإنتاج
+        # تدريب على أول 500 نقطة بيانات
+        X = np.arange(len(df.head(500))).reshape(-1, 1)
+        y = df['production'].head(500)
     else:
-        # بيانات محاكاة هندسية دقيقة في حال غياب الملف
-        X = np.linspace(1000, 4000, 500).reshape(-1, 1) # العمق
+        X = np.linspace(1000, 4000, 500).reshape(-1, 1)
         y = (5000 - (X.flatten() * 0.8)) + np.random.normal(0, 100, 500)
     
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X, y)
     return model
 
-# --- 4. تشغيل العمليات الخلفية ---
 df_real, success = load_production_data()
-model = train_twin_engine(df_real, success)
-# --- 9. تصدير التقارير (Exporting Reports) ---
-st.sidebar.divider()
-st.sidebar.subheader("📥 Export Results")
+model = train_model(df_real, success)
 
-# تحضير بيانات التقرير الحالي بناءً على مدخلات المستخدم
-report_data = pd.DataFrame({
-    'Parameter': ['Target Depth', 'Operating Speed', 'Stuck Risk Status', 'Predicted Production'],
-    'Value': [f"{st_depth} m", f"{st_rpm} RPM", status, f"{current_pred:.2f} bbl/d"]
-})
-
-# دالة لتحويل الـ DataFrame إلى ملف CSV للتحميل
-@st.cache_data
-def convert_df(df):
-    return df.to_csv(index=False).encode('utf-8')
-
-# زر تحميل تقرير الحالة الحالية
-csv_report = convert_df(report_data)
-st.sidebar.download_button(
-    label="📄 Download Diagnostic Report",
-    data=csv_report,
-    file_name=f'Well_Diagnostic_Report_{st_depth}m.csv',
-    mime='text/csv',
-)
-
-# زر تحميل البيانات التاريخية المعالجة (إذا نجحت القراءة)
-if success:
-    csv_full = convert_df(df_real.head(100))
-    st.sidebar.download_button(
-        label="📊 Download Cleaned Field Data",
-        data=csv_full,
-        file_name='Cleaned_Volve_Data.csv',
-        mime='text/csv',
-    )
-# --- 5. تصميم واجهة المستخدم (The Dashboard) ---
-st.title("🛢️ Production Performance Digital Twin")
-st.markdown(f"**Field Monitoring & Optimization Center | Syrian Petroleum Company (SPC)**")
+# --- 4. تصميم الواجهة ---
+st.title("🛢️ Integrated Production Digital Twin")
+st.markdown("**Field Operations Center | Syrian Petroleum Company (SPC)**")
 st.divider()
 
-# القائمة الجانبية للتحكم
-st.sidebar.header("🕹️ Simulation Controls")
-if success:
-    st.sidebar.success("✅ Real Field Data Loaded")
-else:
-    st.sidebar.warning("⚠️ Using Engineering Simulation Mode")
-
-st_depth = st.sidebar.slider("Target Depth (m)", 1000, 4500, 2500)
-st_rpm = st.sidebar.slider("Operating Speed (RPM)", 0, 150, 80)
-
-# التنبؤ باستخدام الموديل
+# القائمة الجانبية
+st.sidebar.header("🕹️ Control Room")
+st_depth = st.sidebar.slider("Current Depth (m)", 1000, 4500, 2500)
+st_rpm = st.sidebar.slider("Rotary Speed (RPM)", 0, 150, 80)
 current_pred = model.predict([[st_depth]])[0]
 
-# --- 6. عرض المؤشرات الرئيسية (KPIs) ---
+# --- 5. العدادات والمؤشرات (Gauges) ---
 col1, col2, col3 = st.columns(3)
 with col1:
-    st.metric("Predicted Production", f"{current_pred:.2f} bbl/d", delta="Real-time Prediction")
+    st.metric("Predicted Flow Rate", f"{current_pred:.2f} bbl/d")
 with col2:
-    st.metric("Operational Stability", "94%", delta="Optimal Range")
+    status = "OPTIMAL" if current_pred > 2000 else "CRITICAL"
+    st.info(f"System Status: {status}")
 with col3:
-    st.metric("Risk Factor", "Low", delta_color="inverse")
+    efficiency = min(100.0, (current_pred / 4000) * 100)
+    st.metric("System Efficiency", f"{efficiency:.1f}%")
 
-st.divider()
-
-# --- 7. الرسوم البيانية (Visual Analytics) ---
+# --- 6. الرسوم البيانية (تجنب خطأ المجلدات) ---
 c1, c2 = st.columns([2, 1])
-
 with c1:
-    st.subheader("📊 Production Trends & AI Forecasting")
+    st.subheader("📈 Performance Trend")
     if success:
-        # --- التعديل هنا لضمان رسم الأعمدة الرقمية فقط ---
-        # نختار أول 100 صف ونأخذ الأعمدة الرقمية فقط (مثل الإنتاج، الضغط)
-        df_numeric = df_real.select_dtypes(include=[np.number]).iloc[:100]
-        
-        if not df_numeric.empty:
-            # نرسم عمود 'production' الذي أنشأناه في دالة التحميل
-            if 'production' in df_numeric.columns:
-                fig = px.line(df_numeric, y='production', title="Real-time Flow Monitoring (bbl/d)")
-            else:
-                # إذا لم يجد عمود بهذا الاسم، يرسم أول عمود رقمي يجده
-                fig = px.line(df_numeric, y=df_numeric.columns[0], title="Field Metric Monitoring")
-        else:
-            st.error("No numeric data found to plot.")
-            fig = go.Figure() # شكل فارغ لمنع الانهيار
+        # رسم البيانات الرقمية فقط لتجنب ValueError
+        df_plot = df_real.select_dtypes(include=[np.number]).head(100)
+        fig = px.line(df_plot, y='production', title="Real-time Production Monitoring")
     else:
-        # رسم بيانات المحاكاة (هذا الجزء سليم عادة)
         dummy_x = np.linspace(1000, 4500, 100)
         dummy_y = model.predict(dummy_x.reshape(-1, 1))
-        fig = px.line(x=dummy_x, y=dummy_y, title="Production vs Depth Model")
-    
-    fig.update_layout(template="plotly_dark", hovermode="x unified")
+        fig = px.line(x=dummy_x, y=dummy_y, title="Simulated Performance Curve")
+    fig.update_layout(template="plotly_dark")
     st.plotly_chart(fig, use_container_width=True)
-    
+
 with c2:
-    st.subheader("🔍 Diagnostics")
-    # إضافة رادار أو عداد سرعة (Gauge)
+    st.subheader("🔍 Health Gauge")
     fig_gauge = go.Figure(go.Indicator(
-        mode = "gauge+number",
-        value = current_pred,
-        domain = {'x': [0, 1], 'y': [0, 1]},
-        title = {'text': "Borehole Efficiency"},
-        gauge = {'axis': {'range': [None, 5000]},
-                 'steps' : [
-                     {'range': [0, 2000], 'color': "red"},
-                     {'range': [2000, 3500], 'color': "yellow"},
-                     {'range': [3500, 5000], 'color': "green"}]}
-    ))
+        mode="gauge+number", value=current_pred,
+        gauge={'axis': {'range': [None, 5000]}, 'bar': {'color': "darkblue"},
+               'steps': [{'range': [0, 1500], 'color': "red"}, {'range': [1500, 3000], 'color': "yellow"}, {'range': [3000, 5000], 'color': "green"}]}))
     st.plotly_chart(fig_gauge, use_container_width=True)
 
-# --- 8. التنبيهات الذكية ---
-st.subheader("🔔 Intelligent Alerts")
+# --- 7. التنبيهات الذكية ---
 if current_pred < 1500:
-    st.error("🚨 Critical Production Drop: AI suggests immediate well stimulation or choke adjustment.")
+    st.error("🚨 ALERT: Production below threshold! AI suggests Choke adjustment.")
 else:
-    st.success("✅ Operations are within the safe and profitable zone.")
+    st.success("✅ Operation stable within safety margins.")
 
-st.divider()
-st.markdown("<center>Designed & Developed by <b>Eng. Solaiman Kudaimi</b> for SPC Project 2026</center>", unsafe_allow_html=True)
+# --- 8. زر تحميل التقرير (جديد) ---
+st.sidebar.divider()
+st.sidebar.subheader("📥 Data Export")
+report_df = pd.DataFrame({'Timestamp': [pd.Timestamp.now()], 'Depth': [st_depth], 'RPM': [st_rpm], 'Predicted_Prod': [current_pred]})
+csv = report_df.to_csv(index=False).encode('utf-8')
+st.sidebar.download_button("📄 Download Diagnostic Report", data=csv, file_name=f"SPC_Report_{st_depth}m.csv", mime='text/csv')
+
+st.markdown("<br><center>Developed by <b>Eng. Solaiman Kudaimi</b></center>", unsafe_allow_html=True)
