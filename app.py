@@ -91,17 +91,29 @@ c1, c2 = st.columns([2, 1])
 with c1:
     st.subheader("📊 Production Trends & AI Forecasting")
     if success:
-        # رسم البيانات الحقيقية
-        fig = px.line(df_real.iloc[:100], title="Historical Field Performance")
+        # --- التعديل هنا لضمان رسم الأعمدة الرقمية فقط ---
+        # نختار أول 100 صف ونأخذ الأعمدة الرقمية فقط (مثل الإنتاج، الضغط)
+        df_numeric = df_real.select_dtypes(include=[np.number]).iloc[:100]
+        
+        if not df_numeric.empty:
+            # نرسم عمود 'production' الذي أنشأناه في دالة التحميل
+            if 'production' in df_numeric.columns:
+                fig = px.line(df_numeric, y='production', title="Real-time Flow Monitoring (bbl/d)")
+            else:
+                # إذا لم يجد عمود بهذا الاسم، يرسم أول عمود رقمي يجده
+                fig = px.line(df_numeric, y=df_numeric.columns[0], title="Field Metric Monitoring")
+        else:
+            st.error("No numeric data found to plot.")
+            fig = go.Figure() # شكل فارغ لمنع الانهيار
     else:
-        # رسم بيانات المحاكاة
+        # رسم بيانات المحاكاة (هذا الجزء سليم عادة)
         dummy_x = np.linspace(1000, 4500, 100)
         dummy_y = model.predict(dummy_x.reshape(-1, 1))
         fig = px.line(x=dummy_x, y=dummy_y, title="Production vs Depth Model")
     
-    fig.update_layout(template="plotly_dark")
+    fig.update_layout(template="plotly_dark", hovermode="x unified")
     st.plotly_chart(fig, use_container_width=True)
-
+    
 with c2:
     st.subheader("🔍 Diagnostics")
     # إضافة رادار أو عداد سرعة (Gauge)
