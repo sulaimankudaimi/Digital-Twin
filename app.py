@@ -116,28 +116,36 @@ report_df = pd.DataFrame({'Timestamp': [pd.Timestamp.now()], 'Depth': [st_depth]
 csv = report_df.to_csv(index=False).encode('utf-8')
 st.sidebar.download_button("📄 Download Diagnostic Report", data=csv, file_name=f"SPC_Report_{st_depth}m.csv", mime='text/csv')
 
-st.markdown("<br><center>Developed by <b>Eng. Solaiman# --- 10. قسم التنبؤ المستقبلي (Forecasting Section) ---
+# --- 10. محرك التنبؤ الزمني المطور (Forecasting Engine) ---
 st.divider()
-st.subheader("🔮 6-Month Production Forecasting (AI)")
+st.subheader("🔮 AI Production Forecasting (Next 6 Months)")
 
-# إنشاء بيانات تنبؤ مستقبلية بناءً على الموديل
-history_len = 100
-future_len = 180
+if success:
+    # 1. تجهيز البيانات للتنبؤ
+    numeric_df = df_real.apply(pd.to_numeric, errors='coerce').dropna(subset=['production'])
+    y_data = numeric_df['production'].values
+    X_data = np.arange(len(y_data)).reshape(-1, 1)
 
-# محاكاة منحنى النضوب (Decline Curve Simulation)
-time_hist = np.arange(history_len)
-prod_hist = df_real['production'].head(history_len).values if success else np.linspace(4000, 3500, history_len)
+    # 2. بناء موديل التنبؤ السريع
+    forecast_model = RandomForestRegressor(n_estimators=50) # أسرع وأدق للسلاسل الزمنية
+    forecast_model.fit(X_data, y_data)
 
-time_future = np.arange(history_len, history_len + future_len)
-# معادلة نضوب هندسية: الإنتاج يقل بنسبة ضئيلة مع الزمن
-prod_future = prod_hist[-1] * np.exp(-0.002 * (time_future - history_len)) 
+    # 3. التوقع للمستقبل
+    future_X = np.arange(len(y_data), len(y_data) + 180).reshape(-1, 1)
+    future_y = forecast_model.predict(future_X)
 
-# رسم المنحنى التفاعلي
-fig_forecast = go.Figure()
-fig_forecast.add_trace(go.Scatter(x=time_hist, y=prod_hist, name='Historical Data', line=dict(color='blue')))
-fig_forecast.add_trace(go.Scatter(x=time_future, y=prod_future, name='AI Forecast (6 Months)', line=dict(color='orange', dash='dot')))
+    # 4. رسم المنحنى المتكامل (Plotly)
+    fig_final = go.Figure()
+    # البيانات التاريخية
+    fig_final.add_trace(go.Scatter(x=X_data.flatten()[-200:], y=y_data[-200:], name='Historical Data', line=dict(color='cyan')))
+    # التوقعات المستقبلية
+    fig_final.add_trace(go.Scatter(x=future_X.flatten(), y=future_y, name='AI Future Forecast', line=dict(color='orange', dash='dot')))
 
-fig_forecast.update_layout(title="Future Production Decline Forecast", xaxis_title="Days", yaxis_title="Production (bbl/d)", template="plotly_dark")
-st.plotly_chart(fig_forecast, use_container_width=True)
+    fig_final.update_layout(title="Integrated Production Decline Curve", xaxis_title="Time Units", yaxis_title="Production Volume", template="plotly_dark")
+    st.plotly_chart(fig_final, use_container_width=True)
+    
+    st.success(f"✅ AI Analysis Complete: Predicted production at the end of forecast: {future_y[-1]:.2f} units.")
+else:
+    st.info("Simulation mode: AI forecasting is based on synthetic engineering models.")st.plotly_chart(fig_forecast, use_container_width=True)
 
 st.info("💡 الملاحظة الفنية: يتوقع الموديل انخفاضاً طبيعياً في الضغط. ينصح بجدولة صيانة للمضخة بعد 120 يوماً.") Kudaimi</b></center>", unsafe_allow_html=True)
