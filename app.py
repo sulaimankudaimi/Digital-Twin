@@ -138,19 +138,17 @@ if success:
     fig_final = go.Figure()
     # البيانات التاريخية
     fig_final.add_trace(go.Scatter(x=X_data.flatten()[-200:], y=y_data[-200:], name='Historical Data', line=dict(color='cyan')))
-    # التوقعات المستقبلية
-    fig_final.add_trace(go.Scatter(x=future_X.flatten(), y=future_y, name='AI Future Forecast', line=dict(color='orange', dash='dot')))
-
+    # رسم المنحنى المتكامل
     fig_final.update_layout(title="Integrated Production Decline Curve", xaxis_title="Time Units", yaxis_title="Production Volume", template="plotly_dark")
     st.plotly_chart(fig_final, use_container_width=True)
     
     st.success(f"✅ AI Analysis Complete: Predicted production at the end of forecast: {future_y[-1]:.2f} units.")
+    st.info("💡 الملاحظة الفنية: يتوقع الموديل انخفاضاً طبيعياً في الإنتاج. ينصح بجدولة صيانة للمضخة بعد 120 يوماً.")
+
 else:
-    st.info("Simulation mode: AI forecasting is based on synthetic engineering models.")st.plotly_chart(fig_forecast, use_container_width=True)
-# إظهار الملاحظة الفنية
-    st.info("💡 الملاحظة الفنية: يتوقع الموديل انخفاضاً طبيعياً في الضغط. ينصح بجدولة صيانة للمضخة بعد 120 يوماً.")
-else:
-    st.info("Simulation mode: AI forecasting is based on synthetic engineering models.")
+    # في حالة عدم تحميل البيانات الحقيقية
+    st.warning("⚠️ Simulation mode: AI forecasting is based on synthetic engineering models.")
+    # (اختياري) يمكنك وضع رسم بياني افتراضي هنا
 
 # --- 11. تذييل الصفحة (Footer) ---
 st.divider()
