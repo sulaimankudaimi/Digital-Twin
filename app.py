@@ -55,7 +55,39 @@ def train_twin_engine(df, is_real):
 # --- 4. تشغيل العمليات الخلفية ---
 df_real, success = load_production_data()
 model = train_twin_engine(df_real, success)
+# --- 9. تصدير التقارير (Exporting Reports) ---
+st.sidebar.divider()
+st.sidebar.subheader("📥 Export Results")
 
+# تحضير بيانات التقرير الحالي بناءً على مدخلات المستخدم
+report_data = pd.DataFrame({
+    'Parameter': ['Target Depth', 'Operating Speed', 'Stuck Risk Status', 'Predicted Production'],
+    'Value': [f"{st_depth} m", f"{st_rpm} RPM", status, f"{current_pred:.2f} bbl/d"]
+})
+
+# دالة لتحويل الـ DataFrame إلى ملف CSV للتحميل
+@st.cache_data
+def convert_df(df):
+    return df.to_csv(index=False).encode('utf-8')
+
+# زر تحميل تقرير الحالة الحالية
+csv_report = convert_df(report_data)
+st.sidebar.download_button(
+    label="📄 Download Diagnostic Report",
+    data=csv_report,
+    file_name=f'Well_Diagnostic_Report_{st_depth}m.csv',
+    mime='text/csv',
+)
+
+# زر تحميل البيانات التاريخية المعالجة (إذا نجحت القراءة)
+if success:
+    csv_full = convert_df(df_real.head(100))
+    st.sidebar.download_button(
+        label="📊 Download Cleaned Field Data",
+        data=csv_full,
+        file_name='Cleaned_Volve_Data.csv',
+        mime='text/csv',
+    )
 # --- 5. تصميم واجهة المستخدم (The Dashboard) ---
 st.title("🛢️ Production Performance Digital Twin")
 st.markdown(f"**Field Monitoring & Optimization Center | Syrian Petroleum Company (SPC)**")
