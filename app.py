@@ -147,5 +147,11 @@ if success:
     st.success(f"✅ AI Analysis Complete: Predicted production at the end of forecast: {future_y[-1]:.2f} units.")
 else:
     st.info("Simulation mode: AI forecasting is based on synthetic engineering models.")st.plotly_chart(fig_forecast, use_container_width=True)
+# إظهار الملاحظة الفنية
+    st.info("💡 الملاحظة الفنية: يتوقع الموديل انخفاضاً طبيعياً في الضغط. ينصح بجدولة صيانة للمضخة بعد 120 يوماً.")
+else:
+    st.info("Simulation mode: AI forecasting is based on synthetic engineering models.")
 
-st.info("💡 الملاحظة الفنية: يتوقع الموديل انخفاضاً طبيعياً في الضغط. ينصح بجدولة صيانة للمضخة بعد 120 يوماً.") Kudaimi</b></center>", unsafe_allow_html=True)
+# --- 11. تذييل الصفحة (Footer) ---
+st.divider()
+st.markdown("<center>Designed & Developed by <b>Eng. Solaiman Kudaimi</b> for SPC Project 2026</center>", unsafe_allow_html=True)
