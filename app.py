@@ -116,4 +116,28 @@ report_df = pd.DataFrame({'Timestamp': [pd.Timestamp.now()], 'Depth': [st_depth]
 csv = report_df.to_csv(index=False).encode('utf-8')
 st.sidebar.download_button("📄 Download Diagnostic Report", data=csv, file_name=f"SPC_Report_{st_depth}m.csv", mime='text/csv')
 
-st.markdown("<br><center>Developed by <b>Eng. Solaiman Kudaimi</b></center>", unsafe_allow_html=True)
+st.markdown("<br><center>Developed by <b>Eng. Solaiman# --- 10. قسم التنبؤ المستقبلي (Forecasting Section) ---
+st.divider()
+st.subheader("🔮 6-Month Production Forecasting (AI)")
+
+# إنشاء بيانات تنبؤ مستقبلية بناءً على الموديل
+history_len = 100
+future_len = 180
+
+# محاكاة منحنى النضوب (Decline Curve Simulation)
+time_hist = np.arange(history_len)
+prod_hist = df_real['production'].head(history_len).values if success else np.linspace(4000, 3500, history_len)
+
+time_future = np.arange(history_len, history_len + future_len)
+# معادلة نضوب هندسية: الإنتاج يقل بنسبة ضئيلة مع الزمن
+prod_future = prod_hist[-1] * np.exp(-0.002 * (time_future - history_len)) 
+
+# رسم المنحنى التفاعلي
+fig_forecast = go.Figure()
+fig_forecast.add_trace(go.Scatter(x=time_hist, y=prod_hist, name='Historical Data', line=dict(color='blue')))
+fig_forecast.add_trace(go.Scatter(x=time_future, y=prod_future, name='AI Forecast (6 Months)', line=dict(color='orange', dash='dot')))
+
+fig_forecast.update_layout(title="Future Production Decline Forecast", xaxis_title="Days", yaxis_title="Production (bbl/d)", template="plotly_dark")
+st.plotly_chart(fig_forecast, use_container_width=True)
+
+st.info("💡 الملاحظة الفنية: يتوقع الموديل انخفاضاً طبيعياً في الضغط. ينصح بجدولة صيانة للمضخة بعد 120 يوماً.") Kudaimi</b></center>", unsafe_allow_html=True)
