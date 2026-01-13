@@ -122,37 +122,41 @@ st.subheader("🔮 AI Production Forecasting (Next 6 Months)")
 
 if success and df_real is not None:
     try:
-        # 1. تنظيف البيانات بشكل صارم للتدريب
-        # تحويل الإنتاج لأرقام وحذف أي قيم غير منطقية أو فارغة
+        # 1. تنظيف البيانات
         forecast_df = df_real.copy()
         forecast_df['production'] = pd.to_numeric(forecast_df['production'], errors='coerce')
         forecast_df = forecast_df.dropna(subset=['production'])
-        forecast_df = forecast_df[np.isfinite(forecast_df['production'])] # حذف القيم اللانهائية
-if len(forecast_df) > 10:
-            # (الكود القديم الخاص بالتنبؤ الحقيقي يبقى كما هو هنا)
+        forecast_df = forecast_df[np.isfinite(forecast_df['production'])]
+
+        # 2. فحص كمية البيانات واتخاذ القرار
+        if len(forecast_df) > 10:
             y_data = forecast_df['production'].values
             X_data = np.arange(len(y_data)).reshape(-1, 1)
             forecast_model = RandomForestRegressor(n_estimators=50, random_state=42)
             forecast_model.fit(X_data, y_data)
             future_X = np.arange(len(y_data), len(y_data) + 180).reshape(-1, 1)
             future_y = forecast_model.predict(future_X)
+            st.success(f"✅ AI Analysis Complete: Forecast based on {len(forecast_df)} points.")
         else:
-            # --- كود المحاكاة الاحترافية في حال نقص البيانات ---
+            # نمط المحاكاة في حال نقص البيانات
             st.info("📊 Limited historical data: Switching to Engineering Trend Simulation")
             last_val = forecast_df['production'].iloc[-1] if not forecast_df.empty else 3500
             X_data = np.arange(50).reshape(-1, 1)
-            y_data = np.linspace(last_val + 200, last_val, 50) # بيانات افتراضية قريبة من الواقع
-            
-            # محاكاة هبوط طبيعي (Decline Curve)
+            y_data = np.linspace(last_val + 200, last_val, 50)
             future_X = np.arange(50, 110).reshape(-1, 1)
             future_y = last_val * np.exp(-0.005 * (future_X - 50)) 
 
-        # 4. رسم المنحنى (سواء كان حقيقياً أو محاكاة)
+        # 3. رسم المنحنى المتكامل
         fig_final = go.Figure()
         fig_final.add_trace(go.Scatter(x=X_data.flatten(), y=y_data, name='Production Trend', line=dict(color='cyan')))
         fig_final.add_trace(go.Scatter(x=future_X.flatten(), y=future_y, name='AI Forecast', line=dict(color='orange', dash='dot')))
-        fig_final.update_layout(title="Integrated Production Decline Curve", template="plotly_dark")
+        fig_final.update_layout(title="Integrated Production Decline Curve", template="plotly_dark", hovermode="x unified")
         st.plotly_chart(fig_final, use_container_width=True)
+
+    except Exception as e:
+        st.error(f"📈 Forecasting Engine Error: {e}")
+else:
+    st.warning("⚠️ Waiting for field data input to generate AI Forecast.")
 
 # --- 11. تذييل الصفحة (Footer) ---
 st.divider()
